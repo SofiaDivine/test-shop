@@ -75,14 +75,36 @@ const ProductCardInfo: React.FC<ProductCardInfoProps> = ({ product }) => {
     setOpen(false);
   };
 
+  const handleDelete = async (id: number) => {
+    try {
+      const res = await fetch(`http://localhost:3001/products/delete/${id}`, {
+        method: "DELETE",
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to delete product");
+      }
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error("Error deleting product:", err.message);
+      } else {
+        console.error("Unknown error occurred while deleting product");
+      }
+    }
+  };
+
+  const safeImages = product.images?.length ? product.images : [];
+  const safeTags = product.tags?.length ? product.tags : [];
+  const safeReviews = product.reviews?.length ? product.reviews : [];
+  const dimensions = product.dimensions || { width: 0, height: 0, depth: 0 };
+
   const showWeight = ["groceries", "furniture"].includes(product.category);
   const showReturnPolicy = ["furniture", "fragrances", "beauty"].includes(
     product.category
   );
 
-  if (!product) {
-    return <div>Product not found</div>;
-  }
+  const thumbnail = product.thumbnail || safeImages[0] || "/no-image.png";
 
   return (
     <>
@@ -109,10 +131,9 @@ const ProductCardInfo: React.FC<ProductCardInfoProps> = ({ product }) => {
             backgroundColor: "#ffffff",
           }}
         >
-          {/* Main Product Image */}
           <CardMedia
             component="img"
-            image={product.thumbnail}
+            image={thumbnail}
             alt={product.title}
             sx={{
               width: { xs: "100%", md: "50%" },
@@ -121,11 +142,10 @@ const ProductCardInfo: React.FC<ProductCardInfoProps> = ({ product }) => {
               borderRadius: { xs: "20px 20px 0 0", md: "20px 0 0 20px" },
               transition: "transform 0.3s ease",
               "&:hover": {
-                transform: "scale(1.05)", // Zoom effect on hover
+                transform: "scale(1.05)",
               },
             }}
           />
-          {/* Product Info Section */}
           <Box
             sx={{
               flex: "1 1 auto",
@@ -144,7 +164,7 @@ const ProductCardInfo: React.FC<ProductCardInfoProps> = ({ product }) => {
               {product.title}
             </Typography>
             <Typography variant="body1" sx={{ color: "#757575", mb: 2 }}>
-              {product.description}
+              {product.description || "No description provided."}
             </Typography>
             <Box
               sx={{
@@ -162,7 +182,7 @@ const ProductCardInfo: React.FC<ProductCardInfoProps> = ({ product }) => {
                   alignItems: "center",
                 }}
               >
-                ${product.price.toFixed(2)}
+                ${product.price?.toFixed(2) || "0.00"}
                 {product.discountPercentage > 0 && (
                   <Typography
                     variant="body2"
@@ -181,26 +201,28 @@ const ProductCardInfo: React.FC<ProductCardInfoProps> = ({ product }) => {
                 )}
               </Typography>
               <Rating
-                value={product.rating}
+                value={product.rating || 0}
                 precision={0.1}
                 readOnly
                 sx={{ mt: 1, color: "#ffca28" }}
               />
             </Box>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 2 }}>
-              {product.tags.map((tag, index) => (
-                <Chip
-                  key={index}
-                  label={tag}
-                  sx={{
-                    backgroundColor: "#ffe6e6",
-                    color: "#ff69b4",
-                    fontWeight: "bold",
-                    borderRadius: "12px",
-                  }}
-                />
-              ))}
-            </Box>
+            {safeTags.length > 0 && (
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 2 }}>
+                {safeTags.map((tag, index) => (
+                  <Chip
+                    key={index}
+                    label={tag}
+                    sx={{
+                      backgroundColor: "#ffe6e6",
+                      color: "#ff69b4",
+                      fontWeight: "bold",
+                      borderRadius: "12px",
+                    }}
+                  />
+                ))}
+              </Box>
+            )}
           </Box>
         </Card>
 
@@ -220,38 +242,43 @@ const ProductCardInfo: React.FC<ProductCardInfoProps> = ({ product }) => {
           >
             Product Photos
           </Typography>
-          <Grid container spacing={2}>
-            {product.images.map((image, index) => (
-              <Grid item xs={12} sm={6} md={4} key={index}>
-                <Card
-                  onClick={() => handleOpen(image)}
-                  sx={{
-                    borderRadius: "15px",
-                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-                    cursor: "pointer",
-                    transition: "transform 0.3s ease",
-                    "&:hover": {
-                      transform: "scale(1.05)", // Zoom effect on hover
-                    },
-                  }}
-                >
-                  <CardMedia
-                    component="img"
-                    height="200"
-                    image={image}
-                    alt={`Product image ${index + 1}`}
+
+          {safeImages.length > 0 ? (
+            <Grid container spacing={2}>
+              {safeImages.map((image, index) => (
+                <Grid item xs={12} sm={6} md={4} key={index}>
+                  <Card
+                    onClick={() => handleOpen(image)}
                     sx={{
                       borderRadius: "15px",
-                      objectFit: "cover",
+                      boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                      cursor: "pointer",
+                      transition: "transform 0.3s ease",
+                      "&:hover": { transform: "scale(1.05)" },
                     }}
-                  />
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+                  >
+                    <CardMedia
+                      component="img"
+                      height="200"
+                      image={image}
+                      alt={`Product image ${index + 1}`}
+                      sx={{
+                        borderRadius: "15px",
+                        objectFit: "cover",
+                      }}
+                    />
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          ) : (
+            <Typography align="center" color="text.secondary">
+              No images available
+            </Typography>
+          )}
         </Box>
 
-        {/* Modal for Enlarged Photo */}
+        {/* Modal */}
         <Dialog open={open} onClose={handleClose} maxWidth="lg">
           <DialogContent
             sx={{
@@ -293,7 +320,9 @@ const ProductCardInfo: React.FC<ProductCardInfoProps> = ({ product }) => {
           </DialogContent>
         </Dialog>
 
-        {/* Additional Details */}
+        <button onClick={() => handleDelete(product.id)}>Delete</button>
+
+        {/* Details Section */}
         <Box sx={{ mt: 4 }}>
           <Grid container spacing={4}>
             <Grid item xs={12} md={6}>
@@ -314,7 +343,7 @@ const ProductCardInfo: React.FC<ProductCardInfoProps> = ({ product }) => {
                   <strong>Category:</strong> {product.category}
                 </Typography>
                 <Typography variant="body1" sx={{ mb: 1, color: "#757575" }}>
-                  <strong>Brand:</strong> {product.brand}
+                  <strong>Brand:</strong> {product.brand || "N/A"}
                 </Typography>
                 {showWeight && (
                   <Typography variant="body1" sx={{ mb: 1, color: "#757575" }}>
@@ -322,17 +351,18 @@ const ProductCardInfo: React.FC<ProductCardInfoProps> = ({ product }) => {
                   </Typography>
                 )}
                 <Typography variant="body1" sx={{ mb: 1, color: "#757575" }}>
-                  <strong>Dimensions:</strong> {product.dimensions.width} x{" "}
-                  {product.dimensions.height} x {product.dimensions.depth} cm
+                  <strong>Dimensions:</strong> {dimensions.width} x{" "}
+                  {dimensions.height} x {dimensions.depth} cm
                 </Typography>
                 {showReturnPolicy && (
                   <Typography variant="body1" sx={{ mb: 1, color: "#757575" }}>
-                    <strong>Return Policy:</strong> {product.returnPolicy}
+                    <strong>Return Policy:</strong>{" "}
+                    {product.returnPolicy || "Not specified"}
                   </Typography>
                 )}
                 <Typography variant="body1" sx={{ mb: 1, color: "#757575" }}>
                   <strong>Minimum Order Quantity:</strong>{" "}
-                  {product.minimumOrderQuantity}
+                  {product.minimumOrderQuantity || 1}
                 </Typography>
               </Card>
             </Grid>
@@ -352,8 +382,8 @@ const ProductCardInfo: React.FC<ProductCardInfoProps> = ({ product }) => {
           >
             Customer Reviews
           </Typography>
-          {product.reviews.length > 0 ? (
-            product.reviews.map((review, index) => (
+          {safeReviews.length > 0 ? (
+            safeReviews.map((review, index) => (
               <Card
                 key={index}
                 sx={{
@@ -365,10 +395,12 @@ const ProductCardInfo: React.FC<ProductCardInfoProps> = ({ product }) => {
                 }}
               >
                 <Typography variant="body1" sx={{ fontWeight: "bold" }}>
-                  {review.reviewerName} -{" "}
-                  {new Date(review.date).toLocaleDateString()}
+                  {review.reviewerName || "Anonymous"} –{" "}
+                  {review.date
+                    ? new Date(review.date).toLocaleDateString()
+                    : "N/A"}
                 </Typography>
-                <Rating value={review.rating} precision={0.1} readOnly />
+                <Rating value={review.rating || 0} readOnly />
                 <Typography variant="body2" sx={{ mt: 1, color: "#757575" }}>
                   {review.comment}
                 </Typography>
@@ -381,7 +413,6 @@ const ProductCardInfo: React.FC<ProductCardInfoProps> = ({ product }) => {
           )}
         </Box>
 
-        {/* Back to products button */}
         <Box sx={{ mt: 5, textAlign: "center" }}>
           <Link href="/" passHref>
             <Button

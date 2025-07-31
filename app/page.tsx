@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ProductsData } from "@/types/productTypes";
+import { ProductsData } from "../types/productTypes";
 import CustomPagination from "../components/Pagination";
 import ProductCard from "../components/ProductCard";
 import Layout from "@/layout";
+import AddProductModal from "../components/AddProductModal";
+
+import { Button } from "@mui/material";
 import {
   Box,
   Typography,
@@ -26,34 +29,34 @@ export default function HomePage() {
 
   const categories = ["all", "beauty", "groceries", "furniture", "fragrances"];
 
+  const [addModalOpen, setAddModalOpen] = useState(false);
+
   useEffect(() => {
-    async function fetchProducts() {
-      try {
-        const res = await fetch(
-          `http://localhost:3000/api/products?page=${currentPage}&limit=10&category=${selectedCategory}`,
-          {
-            cache: "no-store",
-          }
-        );
-
-        if (!res.ok) {
-          throw new Error("Failed to fetch products");
-        }
-
-        const data = await res.json();
-        setProductsData(data);
-        setTotalPages(data.totalPages);
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError("Unknown error occurred");
-        }
-      }
-    }
-
     fetchProducts();
   }, [currentPage, selectedCategory]);
+
+  const fetchProducts = async () => {
+    try {
+      const queryParams =
+        selectedCategory === "all"
+          ? `?_page=${currentPage}&_limit=50`
+          : `?category=${selectedCategory}&_page=${currentPage}&_limit=10`;
+
+      const res = await fetch(`http://localhost:3001/products${queryParams}`, {
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      const data = await res.json();
+      const totalCount = res.headers.get("X-Total-Count");
+
+      setProductsData({ products: data });
+      setTotalPages(totalCount ? Math.ceil(Number(totalCount) / 10) : 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error occurred");
+    }
+  };
 
   const handleCategoryChange = (
     event: React.ChangeEvent<{ value: unknown }>
@@ -80,6 +83,15 @@ export default function HomePage() {
       >
         Products
       </Typography>
+      <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={() => setAddModalOpen(true)}
+        >
+          + Add Product
+        </Button>
+      </Box>
 
       {/* Filter */}
       <Box
@@ -160,6 +172,11 @@ export default function HomePage() {
           onPageChange={(page) => setCurrentPage(page)}
         />
       </Box>
+      <AddProductModal
+        open={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        onAdd={fetchProducts}
+      />
     </Layout>
   );
 }
